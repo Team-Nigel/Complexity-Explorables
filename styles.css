@@ -30,3 +30,7 @@ time {
 .toolbox .control-panel {
   padding: 10px;
 }
+
+.agent {
+  align-self: center;
+}

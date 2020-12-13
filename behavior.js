@@ -26,7 +26,7 @@
 	 * @constant
 	 * @type {Object}
 	 */
-	const controlbox_margin = { top: 40, bottom: 20, left: 20, right: 10 };
+	const controlbox_margin = { top: 10, bottom: 10, left: 15, right: 5 };
 
 	/**
 	 * Constants representing fixed simulation-related scalar coefficients.
@@ -35,11 +35,12 @@
 	 * @type {Number}
 	 */ 
 	const 
-		N = 100, 			    // # of agents
-		L = 128, 			    // world size
+		M = 30; 				// resolution of points around "tadpole" perimeter
+		// N = 100, 			    // # of agents
+		// L = 128, 			    // world size
 		dt = 1,                 // timestep
 		noise_speed = 0.25, 	// variation in individuals' speeds
-		base_speed = 1.0,      // base speed
+		base_speed = 1.0,       // base speed
 		speed_floor = 0.5,      // minimum speed
 		speed_ceiling = 1.5,    // maximum speed
 		epsilon = 0.2; 	 		// angular increment
@@ -52,15 +53,17 @@
 	 * @default
 	 */
 	const
+		def_N_agents = 100;   // total number of agents in simulation
+		def_world_size = 128; // world size (pixels)
 		def_opacity = 1.0;
 		def_speed = 0.5,
-		def_noise_heading = 15,
+		def_noise_heading = 0,
 		def_R_coll = 1,
 		def_R_align = 5,
 		def_R_attract = 15,
 		def_blindspot = 120,
 		def_alpha = 4, // Larger for longer "tail"
-		def_size = 14; // "amplitude" for size parameter on tail modifier
+		def_size = 20; // "amplitude" for size parameter on tail modifier
 
 	/**
 	 * Constants representing slider ranges [lower, upper].
@@ -70,27 +73,31 @@
 	 * @default
 	 */
 	const
-		speed_range = [0, 1], 
-		wiggle_range = [0, 180], 
+		n_agents_range = [16, 512],
+		world_size_range = [128, 512], 
+		speed_range = [0, 1],  
+		noise_heading_range = [0, 180], 
 		collision_radius_range = [0, 4], 
 		alignment_radius_range = [0, 20], 
 		attraction_radius_range = [0, 20], 
 		blindspot_range = [1, 360], 
 		alpha_range = [0.1, 8.0], 
-		size_range = [12, 21];
+		size_range = [12, 48];
 
 	// rainbow toggle	
 	var colorToggle = { id: "t1", name: "Toggle Colors", value: false };
 
-	// parameter objects for the sliders	
+	// parameter objects for the sliders
+	var N = {id: "N", name: "# of Agents", range: n_agents_range, value: def_N_agents};
+	var L = {id: "L", name: "World Size (pixels)", range: world_size_range, value: def_world_size};	
 	var speed = { id: "speed", name: "Speed", range: speed_range, value: def_speed };
-	var noise_heading = { id: "noise_heading", name: "Wiggle", range: wiggle_range, value: def_noise_heading };
+	var noise_heading = { id: "noise_heading", name: "Wiggle", range: noise_heading_range, value: def_noise_heading };
 	var R_coll = { id: "rcoll", name: "Collision Radius", range: collision_radius_range, value: def_R_coll };
 	var R_align = { id: "ralign", name: "Alignment Radius", range: alignment_radius_range, value: def_R_align };
 	var R_attract = { id: "rattract", name: "Attraction Radius", range: attraction_radius_range, value: def_R_attract };
 	var blindspot = { id: "blindspot", name: "Blind Spot", range: blindspot_range, value: def_blindspot };
 	var alpha = { id: "alpha", name: "Relative Tail Length", range: alpha_range, value: def_alpha };
-	var agentSize = { id: "agentSize", name: "Size", range: size_range, value: def_size };
+	var agentSize = { id: "agentSize", name: "Agent Size (pixels)", range: size_range, value: def_size };
 
 	// Scales
 	const 
@@ -101,31 +108,21 @@
 					return d3.hsl(30 + (300 * (i-1)/5),1.4,0.5)
 				})); // Color values correspond to 4 quadrant orientations
 
-	/////////////////////////
-	// this is the agent data	
-	/////////////////////////
-	var agents = d3.range(N).map(function (d, i) {
-		return {
-			id: i,
-			x: Math.random() * L,
-			y: Math.random() * L,
-			theta: Math.random() * 360,
-			speed_var: Math.min(Math.max((base_speed + Math.random() * noise_speed), speed_floor), speed_ceiling),
-			selected: false
-		}
-	});
+	var agents = initAgentsData(N.value, L.value);
 
 	// this is the box for viewing the moving agents in the animated simulation
 	var world = d3.selectAll("#display").append("svg")
 		.attr("width", world_width)
 		.attr("height", world_height)
-		.attr("class", "explorable_display")
+		.attr("class", "explorable_display");
 
 	// add agents to the scene
-	agent = world.selectAll(".agent").data(agents).enter().append("g")
+	var agent = world.selectAll(".agent").data(agents).enter().append("g")
 		.attr("class", "agent")
 		.attr("transform", function (d) { return getAgentTransform(d) });
 
+	// agent: object that is {_groups: Array(1), _parents: Array(1)}
+	// For N = 100, then _groups contains 100 elements corresponding to <g> DOM objects
 	agent.append("path")
 		.attr("class", "drop")
 		.attr("d", tadpole())
@@ -139,7 +136,7 @@
 
 	// widget.block helps distributing widgets in neat arrays
 	// sbl: slider block
-	var sbl = new widget.block([2, 3, 1, 2], controlbox_height - controlbox_margin.top - controlbox_margin.bottom, 4, "[]");
+	var sbl = new widget.block([2, 2, 3, 1, 2], controlbox_height - controlbox_margin.top - controlbox_margin.bottom, 4, "[]");
 
 	// bbl: button block
 	var bbl = new widget.block([3], button_width, 0, "()");
@@ -148,6 +145,8 @@
 	var handleSize = 12, trackSize = 8, fontSize = 16;
 
 	var sliders = [
+		new widget.slider(N).width(slider_width).trackSize(trackSize).handleSize(handleSize).fontSize(fontSize).update(resetDisplay),
+		new widget.slider(L).width(slider_width).trackSize(trackSize).handleSize(handleSize).fontSize(fontSize).update(resetDisplay), 
 		new widget.slider(speed).width(slider_width).trackSize(trackSize).handleSize(handleSize).fontSize(fontSize).update(updateCartoon),
 		new widget.slider(noise_heading).width(slider_width).trackSize(trackSize).handleSize(handleSize).fontSize(fontSize).update(updateCartoon),
 		new widget.slider(R_coll).width(slider_width).trackSize(trackSize).handleSize(handleSize).fontSize(fontSize).update(updateCartoon),
@@ -244,6 +243,14 @@
 	var t; // 1000-ms delay delay (corresponds to "fade-ins") 
 
 	// functions for the agents
+	function detectCollisions(d,a) {
+		// a: reference agent
+		// d: this agent (from iteration on array)
+		dx = (a.x - d.x);
+		dy = (a.y - d.y);
+		return (Math.sqrt(dx * dx + dy * dy) < R_coll.value) && (d.id != a.id)
+	}
+
 	function getAgentColor(d) {
 		return colorToggle.value ? C(d.theta) : "black";
 		// return colorToggle.value ? d3.cubehelix(d.theta, 1.4, 0.5) : "black";
@@ -259,17 +266,40 @@
 		return "translate(" + X(d.x) + "," + Y(d.y) + ")rotate(" + (-d.theta + 180) + ")"
 	}
 
+	function initAgentsData(nAgents, worldSize) {
+		return d3.range(nAgents).map(function (d, i) {
+			return {
+				id: i,
+				x: Math.random() * worldSize, 
+				y: Math.random() * worldSize,
+				theta: Math.random() * 360,
+				speed_var: Math.min(Math.max((base_speed + Math.random() * noise_speed), speed_floor), speed_ceiling),
+				selected: false
+			}
+		});
+	}
+
+	function resetDisplay() {
+		agents = initAgentsData(N.value, L.value);
+		agent = agent.data(agents, d => d); // update list
+
+		// agent is from outside local scope
+		agent.enter().append("path")
+			.attr("class", "drop")
+			.attr("d", tadpole())
+			.style("fill", function (d) { return getAgentColor(d) })
+			.transition().duration(1000).style("opacity", getAgentOpacity());
+
+		agent.exit().remove(); // remove any elements that are not in data list
+	}
+
 	function runpause(d) { d.value() == 1 ? t = d3.timer(runsim, 0) : t.stop(); }
 
 	function resetpositions() {
 
 		if (typeof (t) === "object") { t.stop() };
 
-		agents.forEach(function (d) {
-			d.x = Math.random() * L;
-			d.y = Math.random() * L;
-			d.theta = Math.random() * 360;
-		})
+		agents = initAgentsData(N.value, L.value);
 
 		d3.selectAll(".agent").transition().duration(1000).attr("transform", function (d) { return getAgentTransform(d) })
 			.call(function () {
@@ -303,13 +333,7 @@
 			var colliders = [];
 
 			// iterate on all other agents
-			colliders = agents.filter(function (d) {
-				// a: reference agent
-				// d: this agent (from iteration on array)
-				dx = (a.x - d.x);
-				dy = (a.y - d.y);
-				return (Math.sqrt(dx * dx + dy * dy) < R_coll.value) && (d.id != a.id)
-			})
+			colliders = agents.filter( function(thisAgent, referenceAgent){return detectCollisions(thisAgent, referenceAgent)})
 
 			// either collisions occur or alignment and attraction occur
 			if (colliders.length > 0) {
@@ -411,7 +435,6 @@
 
 	// this is the shape of the agent as a path	
 	function tadpole() {
-		var M = 30;
 		var line = d3.line().x(function (d) { return agentSize.value * d.x; }).y(function (d) { return agentSize.value * d.y; });
 		var drop = d3.range(M).map(function (d, i) {
 			return {
@@ -420,6 +443,15 @@
 			};
 		})
 		return line(drop);
+	}
+
+	function tadpole_weighted_center(d) {
+		var s = tadpole();
+
+		return {
+			x: s.x, 
+			y: s.y
+		}
 	}
 
 	// this updates the agent colors on toggle
