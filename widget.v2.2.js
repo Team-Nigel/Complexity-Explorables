@@ -9,9 +9,9 @@
 exports.buttonElement = function(d,i){
 
 	var backbox ;
-	var hakenschniepel = document.createElementNS("http://www.w3.org/2000/svg", "g");	
+	var obj = document.createElementNS("http://www.w3.org/2000/svg", "g");	
 
-	var s = d3.select(hakenschniepel).append("g")
+	var s = d3.select(obj).append("g")
 	//	.attr("transform","translate("+(-d.size()/2)+","+(-d.size()/2)+")")
 		.attr("class", "button")
 		.attr("id", "button_" + d.id())
@@ -84,13 +84,14 @@ exports.buttonElement = function(d,i){
 				.style("opacity",1)
 				.style("text-anchor",anchor)
 				.style("font-size",d.fontSize())
+				.style("font-weight","bold")
 				.style("alignment-baseline",valign)
 				.attr("transform", "translate(" + (xpos) + "," + (ypos) + ")")
 		
 		}
 	
 	
-	return hakenschniepel;
+	return obj;
 }
 
 exports.toggleElement = function(d,i){
@@ -99,9 +100,9 @@ exports.toggleElement = function(d,i){
 		.domain([false,true])
 		.range([0, 2*d.size() ])
 	
-	var hakenschniepel = document.createElementNS("http://www.w3.org/2000/svg", "g");	
+	var obj = document.createElementNS("http://www.w3.org/2000/svg", "g");	
 	
-	var s = d3.select(hakenschniepel)
+	var s = d3.select(obj)
 		.attr("class", "toggle")
 		.attr("id", "toggle_" + d.id())
 
@@ -167,26 +168,27 @@ exports.toggleElement = function(d,i){
 			.style("text-anchor",anchor)
 			.style("font-size",d.fontSize())
 			.style("alignment-baseline",valign)
+			.style("font-weight","bold")
 			.attr("transform", "translate(" + (xpos) + "," + (ypos) + ")")
 		
 	}
 	
 
-	return hakenschniepel;	
+	return obj;	
 	
 	
 }
 
 exports.sliderElement = function(d,i) {
 	
-	var hakenschniepel = document.createElementNS("http://www.w3.org/2000/svg", "g")
+	var obj = document.createElementNS("http://www.w3.org/2000/svg", "g")
 
 	d.X = d3.scaleLinear()
 		.domain(d.range())
 		.range([0, d.width()]).clamp(true);
 
 	
-	var s = d3.select(hakenschniepel)
+	var s = d3.select(obj)
 		.attr("class", "slider")
 		.attr("id", "slider_" + d.id())
 
@@ -234,20 +236,21 @@ exports.sliderElement = function(d,i) {
 			.style("alignment-baseline",valign)
 			.style("font-size",d.fontSize())
 			.style("opacity",1)
+			.style("font-weight","bold")
 			.attr("transform", "translate(" + (xpos) + "," + (ypos) + ")")
 	}
 	
-	return hakenschniepel;
+	return obj;
 }
 
 exports.radioElement = function(d,i){
 	
-	var hakenschniepel = document.createElementNS("http://www.w3.org/2000/svg", "g");
+	var obj = document.createElementNS("http://www.w3.org/2000/svg", "g");
 	var N = d.choices().length;
 	var n = d3.range(N);
 	var b = new widget.block([N],d.size(),0,"[]");
 	
-	var checkbox = d3.select(hakenschniepel).attr("class","radio").attr("id","radio_"+d.id());
+	var checkbox = d3.select(obj).attr("class","radio").attr("id","radio_"+d.id());
 
 	var button = checkbox.selectAll(".radiobutton").data(n).enter().append("g")
 		.attr("class","radiobutton")
@@ -341,7 +344,7 @@ exports.radioElement = function(d,i){
 		.style("font-size",d.fontSize())
 		.attr("text-anchor",anchor)
 	
-	return hakenschniepel;
+	return obj;
 }
 
 // control element objects
@@ -358,34 +361,34 @@ exports.button = function(p){
 
 	var that = this;
 
-		this.parameter = getset(parameter);
-		this.size = getset(size);
-		this.symbolSize = getset(symbolSize);
-		this.shape = getset(shape);
-		this.fontSize = getset(fontSize);
-		this.label = getset(label);
+	this.parameter = getset(parameter);
+	this.size = getset(size);
+	this.symbolSize = getset(symbolSize);
+	this.shape = getset(shape);
+	this.fontSize = getset(fontSize);
+	this.label = getset(label);
+	
+	this.name = function() {return  parameter.name};
+	this.id = function() {return parameter.id};
+	this.value = function() {return parameter.value};
+	this.actions = function() {return parameter.actions};
+	
+	this.update = function(a) { if ("function" === typeof a) {update = a; return this} else { update(a) }}
+	
+	this.click = function (a){
+		parameter.value = (parameter.value + 1) % parameter.actions.length;
 		
-		this.name = function() {return  parameter.name};
-		this.id = function() {return parameter.id};
-		this.value = function() {return parameter.value};
-		this.actions = function() {return parameter.actions};
+		d3.select("#button_"+parameter.id).select("class",".button-background")
+			.transition().duration(1000).attr("class","button-background-lit")
+			.transition().duration(1000).attr("class","button-background")
 		
-		this.update = function(a) { if ("function" === typeof a) {update = a; return this} else { update(a) }}
+		d3.select("#button_"+parameter.id).selectAll("path")
+			.attr("d",symbol(parameter.actions[parameter.value],that.symbolSize()/2))
+			.transition().attr("class","button-symbol-lit")
+			.transition().attr("class","button-symbol")
 		
-		this.click = function (a){
-			parameter.value = (parameter.value + 1) % parameter.actions.length;
-			
-			d3.select("#button_"+parameter.id).select("class",".button-background")
-				.transition().duration(1000).attr("class","button-background-lit")
-				.transition().duration(1000).attr("class","button-background")
-			
-			d3.select("#button_"+parameter.id).selectAll("path")
-				.attr("d",symbol(parameter.actions[parameter.value],that.symbolSize()/2))
-				.transition().attr("class","button-symbol-lit")
-				.transition().attr("class","button-symbol")
-			
-			that.update(that);
-		};
+		that.update(that);
+	};
 }
 
 exports.toggle = function(p){
@@ -396,28 +399,28 @@ exports.toggle = function(p){
 		label = "top",
 		update = function(x){};
 		
-		var that = this;
-		
-		this.parameter = getset(parameter);
-		this.update = getset(update);
-		this.size = getset(size);		
-		this.border = getset(border);
-		this.label = getset(label);
-		this.fontSize = getset(fontSize);		
+	var that = this;
+	
+	this.parameter = getset(parameter);
+	this.update = getset(update);
+	this.size = getset(size);		
+	this.border = getset(border);
+	this.label = getset(label);
+	this.fontSize = getset(fontSize);		
 
-		this.value = function() {return parameter.value};
-		this.name = function() {return  parameter.name};
-		this.id = function() {return parameter.id};
-		
-		this.update = function(a) { if ("function" === typeof a) {update = a; return this} else { update(a) }};
-		this.click = function(){
-			parameter.value = ! parameter.value;
-			d3.selectAll("#handle_" + parameter.id).transition()
-				.attr("cx", that.X(parameter.value))
-			d3.selectAll("#inset_"+parameter.id)
-				.attr("class",parameter.value ?  "track-inset-lit" : "track-inset")
-			that.update(that);
-		}
+	this.value = function() {return parameter.value};
+	this.name = function() {return  parameter.name};
+	this.id = function() {return parameter.id};
+	
+	this.update = function(a) { if ("function" === typeof a) {update = a; return this} else { update(a) }};
+	this.click = function(){
+		parameter.value = ! parameter.value;
+		d3.selectAll("#handle_" + parameter.id).transition()
+			.attr("cx", that.X(parameter.value))
+		d3.selectAll("#inset_"+parameter.id)
+			.attr("class",parameter.value ?  "track-inset-lit" : "track-inset")
+		that.update(that);
+	}
 }
 
 exports.slider = function(p){
@@ -426,7 +429,7 @@ exports.slider = function(p){
 		width = 100,
 		handleSize = 10,
 		trackSize = 6,
-	fontSize = 12,
+		fontSize = 12,
 		trackBorder = 0.5,
 		label = "top-left", 
 		update = function(x){};
@@ -644,4 +647,3 @@ function symbol(type,scale){
 }
 
 })(this.widget = {})
-
