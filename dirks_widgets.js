@@ -432,6 +432,7 @@ exports.slider = function(p){
 		fontSize = 12,
 		trackBorder = 0.5,
 		label = "top-left", 
+		scale = "linear", // can be: "linear" | "logarithmic"
 		update = function(x){};
 	
 	var that = this;
@@ -454,7 +455,7 @@ exports.slider = function(p){
 					parameter.value = x;
 					that.update(that);
 	}
-	
+	this.scale = getset(scale);
 	this.update = function(a) { if ("function" === typeof a) {update = a; return this} else { update(a) }};
 }
 

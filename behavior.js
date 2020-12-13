@@ -1,11 +1,13 @@
 (function () {
 	/** 
 	 * Constants representing the positions of graphical elements.
+	 * Values are given in pixels.
 	 * 
 	 * @constant
 	 * @type {number}
 	 */
-	var world_width = 400,
+	const 
+		world_width = 400,
 		world_height = 400,
 		controlbox_width = 400,
 		controlbox_height = 400,
@@ -50,6 +52,7 @@
 	 * @default
 	 */
 	const
+		def_opacity = 1.0;
 		def_speed = 0.5,
 		def_noise_heading = 15,
 		def_R_coll = 1,
@@ -57,24 +60,46 @@
 		def_R_attract = 15,
 		def_blindspot = 120,
 		def_alpha = 4, // Larger for longer "tail"
-		def_size = 6; // "amplitude" for size parameter on tail modifier
+		def_size = 14; // "amplitude" for size parameter on tail modifier
+
+	/**
+	 * Constants representing slider ranges [lower, upper].
+	 *
+	 * @constant
+	 * @type {Array}
+	 * @default
+	 */
+	const
+		speed_range = [0, 1], 
+		wiggle_range = [0, 180], 
+		collision_radius_range = [0, 4], 
+		alignment_radius_range = [0, 20], 
+		attraction_radius_range = [0, 20], 
+		blindspot_range = [1, 360], 
+		alpha_range = [0.1, 8.0], 
+		size_range = [12, 21];
 
 	// rainbow toggle	
 	var colorToggle = { id: "t1", name: "Toggle Colors", value: false };
 
 	// parameter objects for the sliders	
-	var speed = { id: "speed", name: "Speed", range: [0, 1], value: def_speed };
-	var noise_heading = { id: "noise_heading", name: "Wiggle", range: [0, 180], value: def_noise_heading };
-	var R_coll = { id: "rcoll", name: "Collision Radius", range: [0, 4], value: def_R_coll };
-	var R_align = { id: "ralign", name: "Alignment Radius", range: [0, 20], value: def_R_align };
-	var R_attract = { id: "rattract", name: "Attraction Radius", range: [0, 20], value: def_R_attract };
-	var blindspot = { id: "blindspot", name: "Blind Spot", range: [1, 360], value: def_blindspot };
-	var alpha = { id: "alpha", name: "Relative Tail Length", range: [-12, 12], value: def_alpha };
-	var agentSize = { id: "agentSize", name: "Size", range: [2, 16], value: def_size };
+	var speed = { id: "speed", name: "Speed", range: speed_range, value: def_speed };
+	var noise_heading = { id: "noise_heading", name: "Wiggle", range: wiggle_range, value: def_noise_heading };
+	var R_coll = { id: "rcoll", name: "Collision Radius", range: collision_radius_range, value: def_R_coll };
+	var R_align = { id: "ralign", name: "Alignment Radius", range: alignment_radius_range, value: def_R_align };
+	var R_attract = { id: "rattract", name: "Attraction Radius", range: attraction_radius_range, value: def_R_attract };
+	var blindspot = { id: "blindspot", name: "Blind Spot", range: blindspot_range, value: def_blindspot };
+	var alpha = { id: "alpha", name: "Relative Tail Length", range: alpha_range, value: def_alpha };
+	var agentSize = { id: "agentSize", name: "Size", range: size_range, value: def_size };
 
-	// position scales
-	var X = d3.scaleLinear().domain([0, L]).range([0, world_width]);
-	var Y = d3.scaleLinear().domain([0, L]).range([world_height, 0]);
+	// Scales
+	const 
+		X = d3.scaleLinear().domain([0, L]).range([0, world_width]), 	// Horizontal position
+		Y = d3.scaleLinear().domain([0, L]).range([world_height, 0]),   // Vertical position
+		C = d3.scaleLinear().domain([0, 90, 180, 270, 360]).range(
+				d3.range(5).map(function (d, i) {
+					return d3.hsl(30 + (300 * (i-1)/5),1.4,0.5)
+				})); // Color values correspond to 4 quadrant orientations
 
 	/////////////////////////
 	// this is the agent data	
@@ -88,7 +113,7 @@
 			speed_var: Math.min(Math.max((base_speed + Math.random() * noise_speed), speed_floor), speed_ceiling),
 			selected: false
 		}
-	})
+	});
 
 	// this is the box for viewing the moving agents in the animated simulation
 	var world = d3.selectAll("#display").append("svg")
@@ -105,7 +130,7 @@
 		.attr("class", "drop")
 		.attr("d", tadpole())
 		.style("fill", function (d) { return getAgentColor(d) })
-		.transition().duration(1000).style("opacity", function (d) { return getAgentOpacity(d) });
+		.transition().duration(1000).style("opacity", getAgentOpacity());
 
 	// action parameters for the buttons
 	var playpause = { id: "b1", name: "", actions: ["play", "pause"], value: 0 };
@@ -185,19 +210,19 @@
 		.attr("d", scope(X(R_attract.value), 270 - blindspot.value / 2))
 		.attr("id", "attract_scope")
 		.style("opacity", 0)
-		.transition().duration(1000).style("opacity", 1);
+		.transition().duration(2000).style("opacity", def_opacity);
 
 	cartoon.append("path")
 		.attr("d", scope(X(R_align.value), 270 - blindspot.value / 2))
 		.attr("id", "orient_scope")
 		.style("opacity", 0)
-		.transition().duration(1000).style("opacity", 1);
+		.transition().duration(2300).style("opacity", def_opacity);
 
 	cartoon.append("path")
 		.attr("d", scope(X(20 * speed.value), 90 + noise_heading.value))
 		.attr("id", "speed")
 		.style("opacity", 0)
-		.transition().duration(1000).style("opacity", 1);
+		.transition().duration(2600).style("opacity", def_opacity);
 
 	cartoon.append("path")
 		.attr("class", "drop")
@@ -210,8 +235,9 @@
 	cartoon.append("circle")
 		.attr("r", X(R_coll.value))
 		.attr("id", "collision_radius")
+		.attr("transform", "scale(3)")
 		.style("opacity", 0)
-		.transition().duration(1000).style("opacity", 1);
+		.transition().duration(3500).style("opacity", def_opacity);
 
 	/////////////////////////////////////////
 	// timer variable for the simulation
@@ -219,17 +245,18 @@
 
 	// functions for the agents
 	function getAgentColor(d) {
-		return colorToggle.value ? d3.cubehelix(d.theta, 1.4, 0.5) : "black";
+		return colorToggle.value ? C(d.theta) : "black";
+		// return colorToggle.value ? d3.cubehelix(d.theta, 1.4, 0.5) : "black";
 		// return colorToggle.value ? d3.interpolateRainbow(d.theta / 360) : "black";
 	}
 
-	function getAgentOpacity(d) {
-		return colorToggle.value ? value2opacity(agentSize.value) : 1;
+	function getAgentOpacity() {
+		return colorToggle.value ? value2opacity(agentSize.value, size_range) : def_opacity;
 		// return colorToggle.value ? 0.25 : 1; // for debugging
 	}
 
 	function getAgentTransform(d) {
-		return "translate(" + X(d.x) + "," + Y(d.y) + ")rotate(" + (-d.theta) + ")"
+		return "translate(" + X(d.x) + "," + Y(d.y) + ")rotate(" + (-d.theta + 180) + ")"
 	}
 
 	function runpause(d) { d.value() == 1 ? t = d3.timer(runsim, 0) : t.stop(); }
@@ -367,7 +394,7 @@
 
 		// Update animation of agents in the display:
 		agent.data(agents).attr("transform", function (obj) { return getAgentTransform(obj) });
-		agent.select("path").style("fill", function (obj) { return getAgentColor(obj) }).style("opacity", function (obj) { return getAgentOpacity(obj) });
+		agent.select("path").style("fill", function (obj) { return getAgentColor(obj) }).style("opacity", getAgentOpacity());
 
 	}
 	/////////////////////////////////////////	
@@ -398,8 +425,8 @@
 	// this updates the agent colors on toggle
 	function updateAgentColors() {
 		agent.select("path")
-			.style("opacity", function (d) { return getAgentOpacity(d) })
-			.style("fill-opacity", function (d) { return getAgentOpacity(d) })
+			.style("opacity", getAgentOpacity())
+			.style("fill-opacity", getAgentOpacity())
 			.style("fill", function (d) { return getAgentColor(d) });
 	}
 
@@ -414,8 +441,9 @@
 		updateAgentColors();
 	}
 
-	function value2opacity(value, domain, range = [0, 1]) {
-		return d3.scaleLinear(value).domain(domain).range(range)
+	function value2opacity(value, domain, range = [0.0, def_opacity]) {
+		var x = d3.scaleLinear().domain(domain).range(range);
+		return Math.max(0.5,Math.min(1.0,def_opacity - x(value)));
 	}
 
 })()
