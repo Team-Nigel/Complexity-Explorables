@@ -432,6 +432,7 @@ exports.slider = function(p){
 		fontSize = 12,
 		trackBorder = 0.5,
 		label = "top-left", 
+		round = false, // false: returns value exactly | true: round to neareset integer value using Number.parseFloat(x).toFixed(0)
 		scale = "linear", // can be: "linear" | "logarithmic"
 		update = function(x){};
 	
@@ -449,13 +450,19 @@ exports.slider = function(p){
 	this.value = function() {return parameter.value};
 	this.name = function() {return  parameter.name};
 	this.id = function() {return parameter.id};
-	
+	this.round = getset(round);
+	this.scale = getset(scale);
+
 	this.click = function(x) {
 					d3.selectAll("#handle_" + parameter.id).transition().attr("cx", that.X(x))
-					parameter.value = x;
+					if (that.round) {
+						parameter.value = Number.parseFloat(x).toFixed(0);
+					} else {
+						parameter.value = x;
+					}
 					that.update(that);
 	}
-	this.scale = getset(scale);
+	
 	this.update = function(a) { if ("function" === typeof a) {update = a; return this} else { update(a) }};
 }
 

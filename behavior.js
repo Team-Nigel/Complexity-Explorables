@@ -7,10 +7,10 @@
 	 * @type {number}
 	 */
 	const 
-		world_width = 400,
-		world_height = 400,
-		controlbox_width = 400,
-		controlbox_height = 400,
+		world_width = 500,
+		world_height = 500,
+		controlbox_width = 500,
+		controlbox_height = 500,
 		cartoon_x = 4 * controlbox_width / 5,
 		cartoon_y = controlbox_height / 4 + 5,
 		button_x = 3 * controlbox_width / 4,
@@ -26,7 +26,7 @@
 	 * @constant
 	 * @type {Object}
 	 */
-	const controlbox_margin = { top: 10, bottom: 10, left: 15, right: 5 };
+	const controlbox_margin = { top: 50, bottom: 20, left: 15, right: 0 };
 
 	/**
 	 * Constants representing fixed simulation-related scalar coefficients.
@@ -35,9 +35,7 @@
 	 * @type {Number}
 	 */ 
 	const 
-		M = 30; 				// resolution of points around "tadpole" perimeter
-		// N = 100, 			    // # of agents
-		// L = 128, 			    // world size
+		M = 30, 				// resolution of points around "tadpole" perimeter
 		dt = 1,                 // timestep
 		noise_speed = 0.25, 	// variation in individuals' speeds
 		base_speed = 1.0,       // base speed
@@ -53,9 +51,9 @@
 	 * @default
 	 */
 	const
-		def_N_agents = 100;   // total number of agents in simulation
-		def_world_size = 128; // world size (pixels)
-		def_opacity = 1.0;
+		def_N_agents = 100,   // total number of agents in simulation
+		def_world_size = 128, // world size (pixels)
+		def_opacity = 1.0,
 		def_speed = 0.5,
 		def_noise_heading = 0,
 		def_R_coll = 1,
@@ -88,8 +86,8 @@
 	var colorToggle = { id: "t1", name: "Toggle Colors", value: false };
 
 	// parameter objects for the sliders
-	var N = {id: "N", name: "# of Agents", range: n_agents_range, value: def_N_agents};
-	var L = {id: "L", name: "World Size (pixels)", range: world_size_range, value: def_world_size};	
+	var N = {id: "N", name: "# of Agents", range: n_agents_range, value: def_N_agents, round: true};
+	var L = {id: "L", name: "World Size (pixels)", range: world_size_range, value: def_world_size, round: true};	
 	var speed = { id: "speed", name: "Speed", range: speed_range, value: def_speed };
 	var noise_heading = { id: "noise_heading", name: "Wiggle", range: noise_heading_range, value: def_noise_heading };
 	var R_coll = { id: "rcoll", name: "Collision Radius", range: collision_radius_range, value: def_R_coll };
@@ -100,9 +98,9 @@
 	var agentSize = { id: "agentSize", name: "Agent Size (pixels)", range: size_range, value: def_size };
 
 	// Scales
-	const 
-		X = d3.scaleLinear().domain([0, L]).range([0, world_width]), 	// Horizontal position
-		Y = d3.scaleLinear().domain([0, L]).range([world_height, 0]),   // Vertical position
+	var 
+		X = d3.scaleLinear().domain([0, L.value]).range([0, world_width]), 	// Horizontal position
+		Y = d3.scaleLinear().domain([0, L.value]).range([world_height, 0]),   // Vertical position
 		C = d3.scaleLinear().domain([0, 90, 180, 270, 360]).range(
 				d3.range(5).map(function (d, i) {
 					return d3.hsl(30 + (300 * (i-1)/5),1.4,0.5)
@@ -111,23 +109,24 @@
 	var agents = initAgentsData(N.value, L.value);
 
 	// this is the box for viewing the moving agents in the animated simulation
-	var world = d3.selectAll("#display").append("svg")
+	const wo = d3.selectAll("#display").append("svg")
 		.attr("width", world_width)
 		.attr("height", world_height)
-		.attr("class", "explorable_display");
-
-	// add agents to the scene
-	var agent = world.selectAll(".agent").data(agents).enter().append("g")
+		.attr("class", "animation");
+	const ag = wo.selectAll(".agent").data(agents).enter()
+		.append("g")
 		.attr("class", "agent")
-		.attr("transform", function (d) { return getAgentTransform(d) });
-
-	// agent: object that is {_groups: Array(1), _parents: Array(1)}
-	// For N = 100, then _groups contains 100 elements corresponding to <g> DOM objects
-	agent.append("path")
+		.attr("transform", function (d) { return getAgentTransform(d) })
+		.append("path")
 		.attr("class", "drop")
 		.attr("d", tadpole())
 		.style("fill", function (d) { return getAgentColor(d) })
 		.transition().duration(1000).style("opacity", getAgentOpacity());
+
+	const world = {
+		container: wo, 
+		agent: ag
+	};
 
 	// action parameters for the buttons
 	var playpause = { id: "b1", name: "", actions: ["play", "pause"], value: 0 };
@@ -180,7 +179,7 @@
 	var controls = d3.selectAll("#controls").append("svg")
 		.attr("width", controlbox_width)
 		.attr("height", controlbox_height)
-		.attr("class", "explorable_widgets")
+		.attr("class", "controls")
 
 	// Define central location for each of the controls/cartoon illustrating their influence
 	var slider = controls.append("g").attr("id", "sliders")
@@ -263,7 +262,8 @@
 	}
 
 	function getAgentTransform(d) {
-		return "translate(" + X(d.x) + "," + Y(d.y) + ")rotate(" + (-d.theta + 180) + ")"
+		var transform_string = "translate(" + X(d.x) + "," + Y(d.y) + ")rotate(" + (-d.theta + 180) + ")";
+		return transform_string
 	}
 
 	function initAgentsData(nAgents, worldSize) {
@@ -280,17 +280,32 @@
 	}
 
 	function resetDisplay() {
-		agents = initAgentsData(N.value, L.value);
-		agent = agent.data(agents, d => d); // update list
+		world.agent = world.container.selectAll(".agent").data(agents, d => d).exit().remove();
 
-		// agent is from outside local scope
-		agent.enter().append("path")
-			.attr("class", "drop")
-			.attr("d", tadpole())
-			.style("fill", function (d) { return getAgentColor(d) })
-			.transition().duration(1000).style("opacity", getAgentOpacity());
+		var new_agents = initAgentsData(N.value, L.value);
+		var 
+			i = 0, 
+			n_old = agents.length;
 
-		agent.exit().remove(); // remove any elements that are not in data list
+		while (i < n_old) {
+			agents.pop();
+			i++;
+		}
+
+		new_agents.forEach(function (a) {
+			agents.push(a);
+		});
+
+		// Any "entering" datapoints need to get a group and associated path
+		world.agent = world.container.selectAll(".agent").data(agents, d => d).enter()
+		  .append("g")
+		  	.attr("id", d => d)
+			.attr("class", "agent")
+			.attr("transform", function(d){return getAgentTransform(d);})
+		      .append("path")
+				.attr("class", "drop")
+				.attr("d", tadpole())
+				.style("fill", function(d){return getAgentColor(d);});	
 	}
 
 	function runpause(d) { d.value() == 1 ? t = d3.timer(runsim, 0) : t.stop(); }
@@ -301,7 +316,7 @@
 
 		agents = initAgentsData(N.value, L.value);
 
-		d3.selectAll(".agent").transition().duration(1000).attr("transform", function (d) { return getAgentTransform(d) })
+		world.agent.transition().duration(1000).attr("transform", function (d) { return getAgentTransform(d) })
 			.call(function () {
 				if (typeof (t) === "object" && playpause.value == 1) { t = d3.timer(runsim, 0) }
 			})
@@ -408,8 +423,8 @@
 			var y_new = (d.y + dy);
 
 			// If we hit a boundary, reverse direction (according to boundary dimension):		
-			if (x_new < 0 || x_new > L) dx *= -1;
-			if (y_new < 0 || y_new > L) dy *= -1;
+			if (x_new < 0 || x_new > L.value) dx *= -1;
+			if (y_new < 0 || y_new > L.value) dy *= -1;
 
 			d.x = (d.x + dx)
 			d.y = (d.y + dy)
@@ -417,9 +432,8 @@
 		})
 
 		// Update animation of agents in the display:
-		agent.data(agents).attr("transform", function (obj) { return getAgentTransform(obj) });
-		agent.select("path").style("fill", function (obj) { return getAgentColor(obj) }).style("opacity", getAgentOpacity());
-
+		world.container.selectAll(".drop").attr("transform", function (obj) { return getAgentTransform(obj) });
+		world.container.selectAll("path").style("fill", function (obj) { return getAgentColor(obj) }).style("opacity", getAgentOpacity());
 	}
 	/////////////////////////////////////////	
 
@@ -456,7 +470,7 @@
 
 	// this updates the agent colors on toggle
 	function updateAgentColors() {
-		agent.select("path")
+		world.container.selectAll("path")
 			.style("opacity", getAgentOpacity())
 			.style("fill-opacity", getAgentOpacity())
 			.style("fill", function (d) { return getAgentColor(d) });
@@ -469,7 +483,7 @@
 		d3.select("#collision_radius").attr("r", X(R_coll.value))
 		d3.select("#speed").attr("d", scope(X(20 * speed.value), 90 + noise_heading.value))
 		d3.select("#droplet").attr("d", tadpole())
-		agent.select("path").attr("d", tadpole())
+		world.container.selectAll("path").attr("d", tadpole())
 		updateAgentColors();
 	}
 
